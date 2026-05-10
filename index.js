@@ -23,11 +23,15 @@ app.post('/transcribe', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
+    console.log('Received file:', req.file.originalname, req.file.mimetype, req.file.size, 'bytes');
+
+    const filename = req.file.originalname || 'recording.m4a';
+    const ext = filename.split('.').pop()?.toLowerCase() || 'm4a';
+    const mimeMap = { m4a: 'audio/m4a', mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac', webm: 'audio/webm' };
+    const contentType = mimeMap[ext] || 'audio/m4a';
+
     const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: req.file.originalname || 'recording.m4a',
-      contentType: req.file.mimetype || 'audio/m4a',
-    });
+    form.append('file', req.file.buffer, { filename, contentType });
     form.append('model', 'whisper-1');
     form.append('language', 'ar');
     form.append('prompt', 'بسم الله الرحمن الرحيم قراءة قرآنية كريمة');
@@ -45,6 +49,7 @@ app.post('/transcribe', upload.single('file'), async (req, res) => {
       }
     );
 
+    console.log('Transcription result:', response.data.text);
     res.json({ text: response.data.text });
   } catch (e) {
     console.error('Transcribe error:', e?.response?.data || e.message);
