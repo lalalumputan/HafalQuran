@@ -11,13 +11,31 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
+// ── UPSTASH REDIS (persistent) ───────────────────────────────────────────────
+// Menyimpan: code:HQ-XXXXXX → deviceId
+// Sehingga 1 kode hanya bisa dipakai 1 device, permanen walau server restart.
+
+const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+const redisGet = async (key) => {
+  const res  = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+  });
+  const data = await res.json();
+  return data.result ?? null;   // null jika belum ada
+};
+
+const redisSet = async (key, value) => {
+  await fetch(`${REDIS_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`, {
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+  });
+};
+
 // ── KODE AKSES ───────────────────────────────────────────────────────────────
-// Kode valid disimpan di env var VALID_CODES (comma-separated), contoh:
-//   VALID_CODES=HQ-5F163E,HQ-06A6CF,HQ-910955,...
-//
-// Usage tracking disimpan di memory (Map).
-// Catatan: tracking reset kalau server restart — untuk Opsi A ini cukup,
-// karena kode sudah unik per pembeli.
+// Kode valid disimpan di env var VALID_CODES (comma-separated):
+//   VALID_CODES=HQ-5F163E,HQ-06A6CF,...
+// Tracking pemakaian disimpan di Redis → permanen & anti-share
 
 const VALID_CODES = new Set(
   (process.env.VALID_CODES || '')
@@ -26,41 +44,51 @@ const VALID_CODES = new Set(
     .filter(Boolean)
 );
 
-// Map: code → deviceId yang sudah pakai
-const usedBy = new Map();
-
 // POST /validate-code  { code: "HQ-XXXXXX", deviceId: "..." }
-app.post('/validate-code', (req, res) => {
+app.post('/validate-code', async (req, res) => {
   const { code, deviceId } = req.body;
   if (!code || !deviceId)
     return res.status(400).json({ valid: false, error: 'Missing code or deviceId' });
 
   const c = code.trim().toUpperCase();
 
+  // 1. Cek apakah kode ada di daftar
   if (!VALID_CODES.has(c))
     return res.json({ valid: false, error: 'Kode tidak ditemukan' });
 
-  const owner = usedBy.get(c);
+  // 2. Cek di Redis siapa yang sudah pakai kode ini
+  const owner = await redisGet(`code:${c}`);
+
   if (owner && owner !== deviceId)
     return res.json({ valid: false, error: 'Kode sudah dipakai di perangkat lain' });
 
-  // Catat siapa yang pakai kode ini
-  usedBy.set(c, deviceId);
-  console.log(`[KODE] ${c} diaktifkan oleh ${deviceId}`);
+  // 3. Jika belum pernah dipakai → simpan ke Redis
+  if (!owner) {
+    await redisSet(`code:${c}`, deviceId);
+    console.log(`[KODE] ${c} → ${deviceId}`);
+  }
 
   return res.json({ valid: true, message: 'Akses diaktifkan! Selamat menghafal 📖' });
 });
 
-// GET /admin/status?secret=xxx  — lihat berapa kode terpakai
-app.get('/admin/status', (req, res) => {
+// GET /admin/status?secret=xxx
+app.get('/admin/status', async (req, res) => {
   if (req.query.secret !== process.env.ADMIN_SECRET)
     return res.status(403).json({ error: 'Forbidden' });
 
-  const total     = VALID_CODES.size;
-  const usedCount = usedBy.size;
-  const usedList  = Object.fromEntries(usedBy);
-
-  return res.json({ total, used: usedCount, available: total - usedCount, usedList });
+  // Cek satu per satu kode ke Redis
+  const result = {};
+  for (const c of VALID_CODES) {
+    const owner = await redisGet(`code:${c}`);
+    result[c] = owner ? { used: true, deviceId: owner } : { used: false };
+  }
+  const usedCount = Object.values(result).filter(v => v.used).length;
+  return res.json({
+    total:     VALID_CODES.size,
+    used:      usedCount,
+    available: VALID_CODES.size - usedCount,
+    codes:     result,
+  });
 });
 
 // ── WHISPER TRANSCRIBE ───────────────────────────────────────────────────────
