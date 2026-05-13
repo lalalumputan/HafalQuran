@@ -6,24 +6,54 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1B4332"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#1B4332",
+      "barStyle": "light-content"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lalalumputan.hafalquran"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1B4332"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.lalalumputan.hafalquran"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "HafalQuran",
+      "shortName": "HafalQuran",
+      "description": "Latih hafalan Al-Quran dengan tajwid, murottal, dan evaluasi otomatis. Untuk anak usia 10–15 tahun.",
+      "themeColor": "#1B4332",
+      "backgroundColor": "#1B4332",
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "id",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Hafal Al-Quran membutuhkan akses mikrofon untuk merekam bacaan ayat."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e147df1b-3564-4247-b423-45117e7c1502"
+      }
     }
   }
 }
