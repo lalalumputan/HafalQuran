@@ -158,6 +158,27 @@ app.get('/admin/survey', async (req, res) => {
   });
 });
 
+// GET /admin/test-email?secret=xxx — kirim email test untuk verifikasi Resend
+app.get('/admin/test-email', async (req, res) => {
+  if (req.query.secret !== process.env.ADMIN_SECRET)
+    return res.status(403).json({ error: 'Forbidden' });
+
+  const r = getResend();
+  if (!r) return res.status(500).json({ error: 'RESEND_API_KEY tidak dikonfigurasi di server' });
+
+  try {
+    const result = await r.emails.send({
+      from:    'HafalQuran <onboarding@resend.dev>',
+      to:      [ADMIN_EMAIL],
+      subject: '[HafalQuran] Test Email — Resend berfungsi ✅',
+      html:    '<p>Email test dari HafalQuran server. Resend berhasil dikonfigurasi!</p>',
+    });
+    return res.json({ ok: true, result });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // GET /admin/status?secret=xxx
 app.get('/admin/status', async (req, res) => {
   if (req.query.secret !== process.env.ADMIN_SECRET)
