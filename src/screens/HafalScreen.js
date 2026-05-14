@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { transcribeAudio } from '../services/whisperApi';
 import { compareTexts } from '../utils/textComparison';
 import { getAyahAudioUrl } from '../services/quranApi';
-import { saveProgress, addUsage, getRemainingSeconds, hasAccess, getFirstUseTimestamp, getFreeTrialRemaining, getPlan, getDailyLimit } from '../utils/storage';
+import { saveProgress, addUsage, getRemainingSeconds, hasAccess, getPlan } from '../utils/storage';
 import { SERVER_URL } from '../config';
 import { detectWordTajwid, TAJWID_INFO } from '../utils/tajwidAnalyzer';
 import PaywallModal from '../components/PaywallModal';
@@ -80,27 +80,7 @@ export default function HafalScreen({ route }) {
     return { wordsByAyah: byAyah, activeTajwidTypes: [...tajwidSet], hasTajwid: tajwidSet.size > 0 };
   }, [ayahs, includesBismillah]);
 
-  // ── Free trial 1 menit ────────────────────────────────────────────────────
-  useEffect(() => {
-    let timer;
-    const initTrial = async () => {
-      const paid = await hasAccess();
-      if (paid) return; // sudah bayar, tidak perlu timer
-      await getFirstUseTimestamp(); // catat waktu pertama buka (jika belum)
-      const remaining = await getFreeTrialRemaining();
-      if (remaining <= 0) {
-        setShowPaywall(true);
-        triggerSurveyIfNeeded('free');
-      } else {
-        timer = setTimeout(() => {
-          setShowPaywall(true);
-          triggerSurveyIfNeeded('free');
-        }, remaining);
-      }
-    };
-    initTrial();
-    return () => clearTimeout(timer);
-  }, []);
+  // (free trial ditangani via daily limit di startRecording)
 
   // ── Cleanup audio saat unmount ─────────────────────────────────────────────
   useEffect(() => {
@@ -310,45 +290,29 @@ export default function HafalScreen({ route }) {
   // ── Rekam ──────────────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
-      // Cek kode akses terlebih dahulu
-      const unlocked = await hasAccess();
-      if (!unlocked) {
-        setShowPaywall(true);
-        return;
-      }
-
-      if (profile?.id) {
-        const remaining = await getRemainingSeconds();
-        if (remaining <= 0) {
-          const plan = await getPlan();
-          if (plan === 'tahunan') {
-            Alert.alert(
-              'Kuota Hari Ini Habis 🌙',
-              'Kamu sudah mencapai batas 7 menit hari ini.\nKembali lagi besok ya!'
-            );
-          } else if (plan === 'bulanan') {
-            Alert.alert(
-              'Kuota Hari Ini Habis ⏱️',
-              'Kamu sudah mencapai batas 7 menit hari ini.\nUpgrade ke paket Tahunan untuk hemat lebih banyak!',
-              [
-                { text: 'Nanti', style: 'cancel' },
-                { text: 'Lihat Paket Tahunan', onPress: () => setShowPaywall(true) },
-              ]
-            );
-          } else {
-            // free
-            Alert.alert(
-              'Kuota Gratis Habis 📖',
-              'Kamu sudah menggunakan 1 menit gratis hari ini.\nUpgrade untuk hafalan tanpa batas!',
-              [
-                { text: 'Nanti', style: 'cancel' },
-                { text: 'Upgrade Sekarang', onPress: () => setShowPaywall(true) },
-              ]
-            );
-          }
+      // Cek daily limit dulu (free=60s, berbayar=420s)
+      const remaining = await getRemainingSeconds();
+      if (remaining <= 0) {
+        const unlocked = await hasAccess();
+        const plan     = await getPlan();
+        if (!unlocked) {
+          // Free user habis kuota harian → tampilkan paywall
+          setShowPaywall(true);
+          triggerSurveyIfNeeded('free');
+        } else if (plan === 'tahunan') {
+          Alert.alert('Kuota Hari Ini Habis 🌙', 'Kembali lagi besok ya!');
+        } else {
+          Alert.alert(
+            'Kuota Hari Ini Habis ⏱️',
+            'Upgrade ke paket Tahunan untuk hemat lebih banyak!',
+            [
+              { text: 'Nanti', style: 'cancel' },
+              { text: 'Lihat Paket Tahunan', onPress: () => setShowPaywall(true) },
+            ]
+          );
           triggerSurveyIfNeeded(plan);
-          return;
         }
+        return;
       }
       setResult(null);
       setRecordingUri(null);
@@ -403,9 +367,9 @@ export default function HafalScreen({ route }) {
       );
       setResult(evalResult);
 
+      await addUsage(durationSecs); // selalu track, device-wide (free maupun berbayar)
       if (profile?.id) {
         await saveProgress(profile.id, surah.number, evalResult.score);
-        await addUsage(durationSecs);   // device-wide, bukan per profil
       }
     } catch (e) {
       Alert.alert('Gagal Evaluasi', e.message || 'Terjadi kesalahan.');
