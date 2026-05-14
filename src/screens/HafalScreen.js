@@ -33,11 +33,12 @@ export default function HafalScreen({ route }) {
   const [surveyAnswered, setSurveyAnswered]     = useState(false);
   const [singlePlayingIdx, setSinglePlayingIdx] = useState(-1); // ayat tunggal yg diputar
 
-  const soundRef       = useRef(null);
-  const recordingRef   = useRef(null);
-  const playingRef     = useRef(false);
-  const recordStartRef = useRef(null);
-  const recSoundRef    = useRef(null);  // untuk putar ulang rekaman user
+  const soundRef        = useRef(null);
+  const recordingRef    = useRef(null);
+  const playingRef      = useRef(false);
+  const recordStartRef  = useRef(null);
+  const recSoundRef     = useRef(null);  // untuk putar ulang rekaman user
+  const quotaTimerRef   = useRef(null);  // auto-stop saat kuota habis mid-recording
 
   // Sertakan Bismillah jika dimulai dari ayat 1 (kecuali Al-Fatiha & At-Tawbah)
   const includesBismillah =
@@ -88,6 +89,7 @@ export default function HafalScreen({ route }) {
       soundRef.current?.unloadAsync();
       recordingRef.current?.stopAndUnloadAsync();
       recSoundRef.current?.unloadAsync();
+      clearTimeout(quotaTimerRef.current);
     };
   }, []);
 
@@ -337,12 +339,20 @@ export default function HafalScreen({ route }) {
       recordingRef.current = recording;
       recordStartRef.current = Date.now();
       setIsRecording(true);
+
+      // Auto-stop saat kuota habis (jaga agar recording tidak melebihi limit)
+      clearTimeout(quotaTimerRef.current);
+      quotaTimerRef.current = setTimeout(() => {
+        if (recordingRef.current) stopAndEvaluate();
+      }, remaining * 1000);
+
     } catch (e) {
       Alert.alert('Error', 'Tidak bisa memulai rekaman: ' + (e.message || ''));
     }
   };
 
   const stopAndEvaluate = async () => {
+    clearTimeout(quotaTimerRef.current);
     try {
       setIsRecording(false);
       setIsEvaluating(true);

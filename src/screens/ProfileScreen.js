@@ -158,9 +158,9 @@ export default function ProfileScreen({ navigation }) {
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.footerApp}>Hafal Al-Quran™</Text>
+        <Text style={styles.footerApp}>HafalQuran™</Text>
         <Text style={styles.footerDev}>developed by lalalumputan</Text>
-        <Text style={styles.footerYear}>© 2025</Text>
+        <Text style={styles.footerYear}>© 2026 • v1.1.0</Text>
       </View>
     </ScrollView>
   );

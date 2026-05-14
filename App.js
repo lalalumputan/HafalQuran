@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -9,10 +9,18 @@ import HafalScreen from './src/screens/HafalScreen';
 
 const STATUS_BAR_HEIGHT = Constants.statusBarHeight ?? 24;
 
+const APP_VERSION = '1.1.0';
+
 export default function App() {
-  const [route, setRoute] = useState({ name: 'Profile', params: {} });
-  const [history, setHistory] = useState([]);
-  const [homeKey, setHomeKey] = useState(0);
+  const [showLanding, setShowLanding] = useState(true);
+  const [route, setRoute]             = useState({ name: 'Profile', params: {} });
+  const [history, setHistory]         = useState([]);
+  const [homeKey, setHomeKey]         = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowLanding(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   const navigate = (name, params = {}) => {
     setHistory(h => [...h, route]);
@@ -43,6 +51,18 @@ export default function App() {
     Surah: route.params?.surah?.englishName || 'Surah',
     Hafal: 'Mode Hafalan',
   };
+
+  if (showLanding) {
+    return (
+      <View style={styles.landing}>
+        <StatusBar style="light" />
+        <Image source={require('./assets/icon.png')} style={styles.landingIcon} />
+        <Text style={styles.landingTitle}>HafalQuran</Text>
+        <Text style={styles.landingTagline}>Hafal Al-Quran dengan tajwid & murottal</Text>
+        <Text style={styles.landingVersion}>v{APP_VERSION}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -93,4 +113,18 @@ const styles = StyleSheet.create({
   backText: { color: '#D4AC0D', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
   screen: { flex: 1 },
+
+  // Landing splash
+  landing: {
+    flex: 1, backgroundColor: '#1B4332',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  landingIcon: { width: 110, height: 110, borderRadius: 24, marginBottom: 20 },
+  landingTitle: {
+    fontSize: 32, fontWeight: 'bold', color: '#D4AC0D', letterSpacing: 1,
+  },
+  landingTagline: {
+    fontSize: 13, color: '#ffffff99', marginTop: 8, textAlign: 'center', paddingHorizontal: 40,
+  },
+  landingVersion: { fontSize: 11, color: '#ffffff55', marginTop: 24 },
 });

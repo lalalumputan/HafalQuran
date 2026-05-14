@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, TextInput,
 } from 'react-native';
 import { fetchSurah } from '../services/quranApi';
 import { SURAH_MEANING_ID } from '../utils/surahNames';
@@ -75,7 +75,22 @@ export default function SurahScreen({ route, navigation }) {
                 onPress={() => setStartAyah(v => Math.max(1, v - 1))}>
                 <Text style={styles.counterBtnText}>−</Text>
               </TouchableOpacity>
-              <Text style={styles.counterVal}>{startAyah}</Text>
+              <TextInput
+                style={styles.counterInput}
+                value={String(startAyah)}
+                onChangeText={t => {
+                  const n = parseInt(t, 10);
+                  if (!isNaN(n) && n >= 1 && n <= ayahs.length) {
+                    setStartAyah(n);
+                    if (n > endAyah) setEndAyah(n);
+                  } else if (t === '') {
+                    setStartAyah(1);
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={3}
+                selectTextOnFocus
+              />
               <TouchableOpacity
                 style={styles.counterBtn}
                 onPress={() => {
@@ -100,7 +115,21 @@ export default function SurahScreen({ route, navigation }) {
                 onPress={() => setEndAyah(v => Math.max(startAyah, v - 1))}>
                 <Text style={styles.counterBtnText}>−</Text>
               </TouchableOpacity>
-              <Text style={styles.counterVal}>{endAyah}</Text>
+              <TextInput
+                style={styles.counterInput}
+                value={String(endAyah)}
+                onChangeText={t => {
+                  const n = parseInt(t, 10);
+                  if (!isNaN(n) && n >= startAyah && n <= maxAyah) {
+                    setEndAyah(n);
+                  } else if (t === '') {
+                    setEndAyah(startAyah);
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={3}
+                selectTextOnFocus
+              />
               <TouchableOpacity
                 style={styles.counterBtn}
                 onPress={() => setEndAyah(v => Math.min(maxAyah, v + 1))}>
@@ -214,9 +243,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8f5e9', justifyContent: 'center', alignItems: 'center',
   },
   counterBtnText: { fontSize: 22, color: '#1B4332', fontWeight: 'bold', lineHeight: 26 },
-  counterVal: {
-    fontSize: 24, fontWeight: 'bold', color: '#1B4332',
-    marginHorizontal: 14, minWidth: 32, textAlign: 'center',
+  counterInput: {
+    fontSize: 22, fontWeight: 'bold', color: '#1B4332',
+    marginHorizontal: 8, minWidth: 48, textAlign: 'center',
+    borderBottomWidth: 2, borderBottomColor: '#1B4332',
+    paddingVertical: 2,
   },
   rangeSep: { fontSize: 22, color: '#bbb', paddingTop: 18, paddingHorizontal: 6 },
   rangeInfo: {
