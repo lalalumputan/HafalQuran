@@ -4,7 +4,7 @@ const multer   = require('multer');
 const axios    = require('axios');
 const FormData = require('form-data');
 const cors     = require('cors');
-const { Resend } = require('resend');
+// Email via Resend REST API (tanpa npm package, pakai fetch bawaan Node 18+)
 
 const app    = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -18,13 +18,26 @@ app.use(express.json());
 
 const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-// Resend diinisialisasi lazy agar server tidak crash saat API key belum diset
-let _resend = null;
-const getResend = () => {
-  if (!_resend && process.env.RESEND_API_KEY) _resend = new Resend(process.env.RESEND_API_KEY);
-  return _resend;
-};
 const ADMIN_EMAIL = 'lhaeza@gmail.com';
+
+const sendEmail = async (subject, html) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.warn('[EMAIL] RESEND_API_KEY belum diset'); return; }
+  const res = await fetch('https://api.resend.com/emails', {
+    method:  'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    'HafalQuran <onboarding@resend.dev>',
+      to:      [ADMIN_EMAIL],
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.warn('[EMAIL] Gagal kirim:', err);
+  }
+};
 
 const redisGet = async (key) => {
   const res  = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
@@ -109,28 +122,18 @@ app.post('/survey-interest', async (req, res) => {
 
   // Kirim email notifikasi
   try {
-    const r = getResend();
-    if (!r) throw new Error('RESEND_API_KEY tidak dikonfigurasi');
-    await r.emails.send({
-      from:    'HafalQuran <onboarding@resend.dev>',
-      to:      [ADMIN_EMAIL],
-      subject: `[HafalQuran] Survey Hafiz: ${label[answer] || answer}`,
-      html: `
-        <h2>📊 Respons Survey Paket Hafiz</h2>
-        <table style="border-collapse:collapse;font-family:sans-serif">
-          <tr><td style="padding:6px 12px;color:#888">Jawaban</td><td style="padding:6px 12px;font-weight:bold">${label[answer] || answer}</td></tr>
-          <tr><td style="padding:6px 12px;color:#888">Paket saat ini</td><td style="padding:6px 12px">${planMap[plan] || plan || '-'}</td></tr>
-          <tr><td style="padding:6px 12px;color:#888">Device ID</td><td style="padding:6px 12px;font-size:12px;color:#555">${deviceId || '-'}</td></tr>
-          <tr><td style="padding:6px 12px;color:#888">Waktu</td><td style="padding:6px 12px">${ts} WIB</td></tr>
-        </table>
-        <p style="color:#888;font-size:12px;margin-top:16px">
-          Untuk melihat statistik lengkap: <code>GET /admin/survey?secret=...</code>
-        </p>
-      `,
-    });
+    await sendEmail(
+      `[HafalQuran] Survey Hafiz: ${label[answer] || answer}`,
+      `<h2>📊 Respons Survey Paket Hafiz</h2>
+       <table style="border-collapse:collapse;font-family:sans-serif">
+         <tr><td style="padding:6px 12px;color:#888">Jawaban</td><td style="padding:6px 12px;font-weight:bold">${label[answer] || answer}</td></tr>
+         <tr><td style="padding:6px 12px;color:#888">Paket saat ini</td><td style="padding:6px 12px">${planMap[plan] || plan || '-'}</td></tr>
+         <tr><td style="padding:6px 12px;color:#888">Device ID</td><td style="padding:6px 12px;font-size:12px;color:#555">${deviceId || '-'}</td></tr>
+         <tr><td style="padding:6px 12px;color:#888">Waktu</td><td style="padding:6px 12px">${ts} WIB</td></tr>
+       </table>`
+    );
   } catch (e) {
     console.warn('[SURVEY] Email gagal dikirim:', e.message);
-    // Tidak gagalkan request meski email error
   }
 
   console.log(`[SURVEY] ${answer} | plan:${plan} | device:${deviceId}`);
@@ -163,17 +166,14 @@ app.get('/admin/test-email', async (req, res) => {
   if (req.query.secret !== process.env.ADMIN_SECRET)
     return res.status(403).json({ error: 'Forbidden' });
 
-  const r = getResend();
-  if (!r) return res.status(500).json({ error: 'RESEND_API_KEY tidak dikonfigurasi di server' });
-
+  if (!process.env.RESEND_API_KEY)
+    return res.status(500).json({ error: 'RESEND_API_KEY belum diset di Render Environment' });
   try {
-    const result = await r.emails.send({
-      from:    'HafalQuran <onboarding@resend.dev>',
-      to:      [ADMIN_EMAIL],
-      subject: '[HafalQuran] Test Email — Resend berfungsi ✅',
-      html:    '<p>Email test dari HafalQuran server. Resend berhasil dikonfigurasi!</p>',
-    });
-    return res.json({ ok: true, result });
+    await sendEmail(
+      '[HafalQuran] Test Email ✅',
+      '<p>Email test dari HafalQuran server. Resend berhasil dikonfigurasi!</p>'
+    );
+    return res.json({ ok: true, message: 'Email terkirim ke ' + ADMIN_EMAIL });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
