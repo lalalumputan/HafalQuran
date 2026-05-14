@@ -60,3 +60,6 @@ export const fetchSurah = async (number) => {
 export const getAyahAudioUrl = (ayahNumber) => {
   return `${AUDIO_BASE}/${ayahNumber}.mp3`;
 };
+
+// Bismillah = ayat 1 Al-Fatiha (global ayat #1) — diputar sebelum surah
+export const getBismillahAudioUrl = () => `${AUDIO_BASE}/1.mp3`;

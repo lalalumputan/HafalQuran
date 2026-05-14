@@ -147,7 +147,15 @@ const detectPlanFromCode = (code) => {
 export const getPlan = async () => {
   try {
     const plan = await AsyncStorage.getItem(PLAN_KEY);
-    return plan || 'free';
+    if (plan) return plan;
+    // Auto-migrasi: user lama punya kode tapi belum ada hq_plan tersimpan
+    const code = await AsyncStorage.getItem(ACCESS_KEY);
+    if (code) {
+      const detected = detectPlanFromCode(code);
+      await AsyncStorage.setItem(PLAN_KEY, detected);
+      return detected;
+    }
+    return 'free';
   } catch { return 'free'; }
 };
 

@@ -7,7 +7,7 @@ import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { transcribeAudio } from '../services/whisperApi';
 import { compareTexts } from '../utils/textComparison';
-import { getAyahAudioUrl } from '../services/quranApi';
+import { getAyahAudioUrl, getBismillahAudioUrl } from '../services/quranApi';
 import { saveProgress, addUsage, getRemainingSeconds, hasAccess, getPlan } from '../utils/storage';
 import { SERVER_URL } from '../config';
 import { detectWordTajwid, TAJWID_INFO } from '../utils/tajwidAnalyzer';
@@ -86,6 +86,12 @@ export default function HafalScreen({ route }) {
   // ── Cleanup audio saat unmount ─────────────────────────────────────────────
   useEffect(() => {
     return () => {
+      // Hentikan semua audio agar tidak double-play saat pindah surah
+      playingRef.current = false;
+      if (webAudioRef.current) {
+        webAudioRef.current.pause();
+        webAudioRef.current.src = '';
+      }
       soundRef.current?.unloadAsync();
       recordingRef.current?.stopAndUnloadAsync();
       recSoundRef.current?.unloadAsync();
@@ -196,6 +202,18 @@ export default function HafalScreen({ route }) {
     const audio = webAudioRef.current || new window.Audio();
     webAudioRef.current = audio;
 
+    // Putar Bismillah dulu sebelum ayat pertama (kecuali Al-Fatiha & At-Tawbah)
+    if (includesBismillah && playingRef.current) {
+      audio.src = getBismillahAudioUrl();
+      try {
+        await audio.play();
+        await new Promise(resolve => {
+          audio.onended = resolve;
+          audio.onerror = resolve;
+        });
+      } catch { /* lanjut meski bismillah gagal */ }
+    }
+
     for (let i = 0; i < ayahs.length; i++) {
       if (!playingRef.current) break;
       setCurrentAyahIdx(i);
@@ -223,6 +241,22 @@ export default function HafalScreen({ route }) {
   // Native: expo-av per ayat
   const playMurottalNative = async () => {
     await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+
+    // Putar Bismillah dulu sebelum ayat pertama
+    if (includesBismillah && playingRef.current) {
+      try {
+        const { sound: bismSound } = await Audio.Sound.createAsync(
+          { uri: getBismillahAudioUrl() }, { shouldPlay: true }
+        );
+        await new Promise(resolve => {
+          bismSound.setOnPlaybackStatusUpdate(s => {
+            if (s.didJustFinish || !playingRef.current) resolve();
+          });
+        });
+        await bismSound.unloadAsync();
+      } catch { /* lanjut meski bismillah gagal */ }
+    }
+
     for (let i = 0; i < ayahs.length; i++) {
       if (!playingRef.current) break;
       setCurrentAyahIdx(i);
@@ -454,11 +488,8 @@ export default function HafalScreen({ route }) {
                     isCurrentlyPlaying && styles.ayahPlayingWrap,
                   ]}
                 >
-                  {/* Label ayat + indikator playing */}
+                  {/* Label ayat */}
                   <View style={styles.ayahNumRow}>
-                    {(isCurrentlyPlaying || singlePlayingIdx === ayahIdx) && (
-                      <Text style={styles.playingIndicator}>♪</Text>
-                    )}
                     <View style={styles.ayahNumBadge}>
                       <Text style={styles.ayahNumText}>{ayah.numberInSurah}</Text>
                     </View>
