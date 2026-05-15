@@ -4,8 +4,9 @@ import {
   TextInput, ScrollView, Alert,
 } from 'react-native';
 import {
-  getProfiles, createProfile, deleteProfile, PROFILE_COLORS,
+  getProfiles, createProfile, deleteProfile, PROFILE_COLORS, getPlan,
 } from '../utils/storage';
+import PaywallModal from '../components/PaywallModal';
 
 const getInitials = (name) => {
   const parts = name.trim().split(/\s+/);
@@ -13,19 +14,31 @@ const getInitials = (name) => {
   return name.trim().substring(0, 2).toUpperCase();
 };
 
-export default function ProfileScreen({ navigation }) {
-  const [profiles, setProfiles] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState(PROFILE_COLORS[0]);
+const PLAN_INFO = {
+  free:     { label: 'Akun Gratis',      detail: '1 menit/hari',   color: '#888',    bg: '#f5f5f5', border: '#ddd' },
+  bulanan:  { label: 'Premium Bulanan',  detail: '7 menit/hari ✓', color: '#1B4332', bg: '#f0f9f4', border: '#2ECC71' },
+  tahunan:  { label: 'Premium Tahunan',  detail: '7 menit/hari ✓', color: '#856404', bg: '#FFF8DC', border: '#D4AC0D' },
+};
 
-  useEffect(() => { loadProfiles(); }, []);
+export default function ProfileScreen({ navigation }) {
+  const [profiles, setProfiles]     = useState([]);
+  const [showForm, setShowForm]     = useState(false);
+  const [newName, setNewName]       = useState('');
+  const [newColor, setNewColor]     = useState(PROFILE_COLORS[0]);
+  const [plan, setPlan]             = useState('free');
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  useEffect(() => { loadProfiles(); loadPlan(); }, []);
 
   const loadProfiles = async () => {
     const data = await getProfiles();
     setProfiles(data);
-    // Kalau belum ada profil, langsung tampilkan form
     if (data.length === 0) setShowForm(true);
+  };
+
+  const loadPlan = async () => {
+    const p = await getPlan();
+    setPlan(p);
   };
 
   const handleSelect = (profile) => {
@@ -68,6 +81,29 @@ export default function ProfileScreen({ navigation }) {
       <Text style={styles.logo}>☪️</Text>
       <Text style={styles.title}>Hafal Al-Quran</Text>
       <Text style={styles.subtitle}>Siapa yang mau belajar hari ini?</Text>
+
+      {/* Status langganan */}
+      {(() => {
+        const info = PLAN_INFO[plan] || PLAN_INFO.free;
+        const isPaid = plan === 'bulanan' || plan === 'tahunan';
+        return (
+          <View style={[styles.planCard, { backgroundColor: info.bg, borderColor: info.border }]}>
+            <View style={styles.planCardLeft}>
+              <Text style={[styles.planCardLabel, { color: info.color }]}>{info.label}</Text>
+              <Text style={styles.planCardDetail}>{info.detail}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.planCardBtn, isPaid && styles.planCardBtnPaid]}
+              onPress={() => setShowPaywall(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.planCardBtnText, isPaid && styles.planCardBtnTextPaid]}>
+                {isPaid ? 'Kelola' : 'Upgrade →'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       {/* Daftar profil */}
       <View style={styles.grid}>
@@ -162,6 +198,12 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.footerDev}>developed by lalalumputan</Text>
         <Text style={styles.footerYear}>© 2026 • v1.1.0</Text>
       </View>
+
+      <PaywallModal
+        visible={showPaywall}
+        onSuccess={() => { setShowPaywall(false); loadPlan(); }}
+        onClose={() => setShowPaywall(false)}
+      />
     </ScrollView>
   );
 }
@@ -237,6 +279,20 @@ const styles = StyleSheet.create({
   },
   saveBtnOff: { backgroundColor: '#c8d8c8' },
   saveBtnText: { color: '#D4AC0D', fontSize: 15, fontWeight: 'bold' },
+
+  // Plan status card
+  planCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+    width: '100%', marginBottom: 24,
+  },
+  planCardLeft:       { flex: 1 },
+  planCardLabel:      { fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  planCardDetail:     { fontSize: 11, color: '#888' },
+  planCardBtn:        { backgroundColor: '#1B4332', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
+  planCardBtnPaid:    { backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#1B4332' },
+  planCardBtnText:    { color: '#D4AC0D', fontSize: 12, fontWeight: '700' },
+  planCardBtnTextPaid:{ color: '#1B4332' },
 
   emptyHint: {
     fontSize: 14, color: '#999', textAlign: 'center',
