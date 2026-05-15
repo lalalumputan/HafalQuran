@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { transcribeAudio } from '../services/whisperApi';
 import { compareTexts } from '../utils/textComparison';
 import { getAyahAudioUrl, getBismillahAudioUrl } from '../services/quranApi';
-import { saveProgress, addUsage, getRemainingSeconds, hasAccess, getPlan } from '../utils/storage';
+import { saveProgress, addUsage, getRemainingSeconds, hasAccess, getPlan, formatTime } from '../utils/storage';
 import { SERVER_URL } from '../config';
 import { detectWordTajwid, TAJWID_INFO } from '../utils/tajwidAnalyzer';
 import PaywallModal from '../components/PaywallModal';
@@ -32,6 +32,8 @@ export default function HafalScreen({ route }) {
   const [showSurvey, setShowSurvey]             = useState(false);
   const [surveyAnswered, setSurveyAnswered]     = useState(false);
   const [singlePlayingIdx, setSinglePlayingIdx] = useState(-1); // ayat tunggal yg diputar
+  const [remainingSecs, setRemainingSecs]       = useState(null); // null = belum di-load
+  const [currentPlan, setCurrentPlan]           = useState('free');
 
   const soundRef        = useRef(null);
   const recordingRef    = useRef(null);
@@ -81,7 +83,22 @@ export default function HafalScreen({ route }) {
     return { wordsByAyah: byAyah, activeTajwidTypes: [...tajwidSet], hasTajwid: tajwidSet.size > 0 };
   }, [ayahs, includesBismillah]);
 
-  // (free trial ditangani via daily limit di startRecording)
+  // ── Load kuota saat mount ──────────────────────────────────────────────────
+  useEffect(() => {
+    const loadQuota = async () => {
+      const plan = await getPlan();
+      const rem  = await getRemainingSeconds();
+      setCurrentPlan(plan);
+      setRemainingSecs(rem);
+    };
+    loadQuota();
+  }, []);
+
+  // ── Refresh kuota setelah rekaman selesai ─────────────────────────────────
+  const refreshQuota = async () => {
+    const rem = await getRemainingSeconds();
+    setRemainingSecs(rem);
+  };
 
   // ── Cleanup audio saat unmount ─────────────────────────────────────────────
   useEffect(() => {
@@ -412,6 +429,7 @@ export default function HafalScreen({ route }) {
       setResult(evalResult);
 
       await addUsage(durationSecs); // selalu track, device-wide (free maupun berbayar)
+      await refreshQuota();          // update tampilan sisa kuota
       if (profile?.id) {
         await saveProgress(profile.id, surah.number, evalResult.score);
       }
@@ -617,6 +635,22 @@ export default function HafalScreen({ route }) {
             : '▶  Dengar Murottal'}
         </Text>
       </TouchableOpacity>
+
+      {/* ── Info kuota ── */}
+      {remainingSecs !== null && !isRecording && (
+        <View style={[
+          styles.quotaBar,
+          remainingSecs <= 0 && styles.quotaBarEmpty,
+          remainingSecs > 0 && remainingSecs <= 60 && styles.quotaBarLow,
+        ]}>
+          <Text style={styles.quotaBarText}>
+            {remainingSecs <= 0
+              ? `⏱ Kuota hari ini habis (${currentPlan === 'free' ? 'Gratis 1 mnt' : 'Premium 7 mnt'})`
+              : `⏱ Sisa hari ini: ${formatTime(remainingSecs)} (${currentPlan === 'free' ? 'Gratis' : 'Premium'})`
+            }
+          </Text>
+        </View>
+      )}
 
       {/* ── Rekam ── */}
       <TouchableOpacity
@@ -939,6 +973,15 @@ const styles = StyleSheet.create({
   extraToggleBtnOn: { backgroundColor: '#1B4332', borderColor: '#1B4332' },
   extraToggleText: { fontSize: 12, color: '#555', fontWeight: '600' },
   extraToggleTextOn: { color: '#D4AC0D' },
+
+  // ── Quota bar ──
+  quotaBar: {
+    backgroundColor: '#f0f9f4', borderRadius: 10, paddingHorizontal: 14,
+    paddingVertical: 8, marginBottom: 8, borderWidth: 1, borderColor: '#c8e6c9',
+  },
+  quotaBarLow:   { backgroundColor: '#FFF8DC', borderColor: '#D4AC0D' },
+  quotaBarEmpty: { backgroundColor: '#fdecea', borderColor: '#f5c6cb' },
+  quotaBarText:  { fontSize: 12, color: '#555', textAlign: 'center', fontWeight: '600' },
 
   // ── Murottal button ──
   audioBtn: {
