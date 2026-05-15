@@ -6,6 +6,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SurahScreen from './src/screens/SurahScreen';
 import HafalScreen from './src/screens/HafalScreen';
+import { Analytics } from '@vercel/analytics/react';
 
 const STATUS_BAR_HEIGHT = Constants.statusBarHeight ?? 24;
 
@@ -78,6 +79,7 @@ export default function App() {
         </Text>
       </View>
 
+      <Analytics />
       <View style={styles.screen}>
         {route.name === 'Profile' && (
           <ProfileScreen navigation={navigation} />

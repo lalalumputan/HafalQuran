@@ -13,6 +13,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@vercel/analytics": "^2.0.1",
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
