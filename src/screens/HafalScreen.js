@@ -371,8 +371,13 @@ export default function HafalScreen({ route }) {
       setRecordingUri(null);
       await stopRecording();
       await stopMurottal();
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) { Alert.alert('Izin Diperlukan', 'Aplikasi butuh izin mikrofon.'); return; }
+      // Di web, browser otomatis minta izin saat getUserMedia dipanggil di dalam createAsync.
+      // requestPermissionsAsync() di web mengembalikan granted:false sebelum izin pernah diminta
+      // sehingga recording tidak pernah bisa dimulai. Skip check ini khusus web.
+      if (Platform.OS !== 'web') {
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) { Alert.alert('Izin Diperlukan', 'Aplikasi butuh izin mikrofon.'); return; }
+      }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const { recording } = await Audio.Recording.createAsync({
         android: {
