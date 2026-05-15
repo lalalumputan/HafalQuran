@@ -15,9 +15,10 @@ const getInitials = (name) => {
 };
 
 const PLAN_INFO = {
-  free:     { label: 'Akun Gratis',      detail: '1 menit/hari',   color: '#888',    bg: '#f5f5f5', border: '#ddd' },
-  bulanan:  { label: 'Premium Bulanan',  detail: '7 menit/hari ✓', color: '#1B4332', bg: '#f0f9f4', border: '#2ECC71' },
-  tahunan:  { label: 'Premium Tahunan',  detail: '7 menit/hari ✓', color: '#856404', bg: '#FFF8DC', border: '#D4AC0D' },
+  free:     { label: 'Akun Gratis',      detail: '1 menit/hari',       color: '#888',    bg: '#f5f5f5', border: '#ddd' },
+  bulanan:  { label: 'Premium Bulanan',  detail: '7 menit/hari ✓',     color: '#1B4332', bg: '#f0f9f4', border: '#2ECC71' },
+  tahunan:  { label: 'Premium Tahunan',  detail: '7 menit/hari ✓',     color: '#856404', bg: '#FFF8DC', border: '#D4AC0D' },
+  lifetime: { label: 'Lifetime ♾️',      detail: 'Unlimited — no limit', color: '#5B2D8E', bg: '#f3e8ff', border: '#9B59B6' },
 };
 
 export default function ProfileScreen({ navigation }) {

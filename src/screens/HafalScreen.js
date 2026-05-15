@@ -640,13 +640,16 @@ export default function HafalScreen({ route }) {
       {remainingSecs !== null && !isRecording && (
         <View style={[
           styles.quotaBar,
-          remainingSecs <= 0 && styles.quotaBarEmpty,
-          remainingSecs > 0 && remainingSecs <= 60 && styles.quotaBarLow,
+          currentPlan === 'lifetime'                    && styles.quotaBarLifetime,
+          currentPlan !== 'lifetime' && remainingSecs <= 0 && styles.quotaBarEmpty,
+          currentPlan !== 'lifetime' && remainingSecs > 0 && remainingSecs <= 60 && styles.quotaBarLow,
         ]}>
           <Text style={styles.quotaBarText}>
-            {remainingSecs <= 0
-              ? `⏱ Kuota hari ini habis (${currentPlan === 'free' ? 'Gratis 1 mnt' : 'Premium 7 mnt'})`
-              : `⏱ Sisa hari ini: ${formatTime(remainingSecs)} (${currentPlan === 'free' ? 'Gratis' : 'Premium'})`
+            {currentPlan === 'lifetime'
+              ? '♾️  Unlimited — Lifetime Access'
+              : remainingSecs <= 0
+                ? `⏱ Kuota hari ini habis (${currentPlan === 'free' ? 'Gratis 1 mnt' : 'Premium 7 mnt'})`
+                : `⏱ Sisa hari ini: ${formatTime(remainingSecs)} (${currentPlan === 'free' ? 'Gratis' : 'Premium'})`
             }
           </Text>
         </View>
@@ -979,9 +982,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f9f4', borderRadius: 10, paddingHorizontal: 14,
     paddingVertical: 8, marginBottom: 8, borderWidth: 1, borderColor: '#c8e6c9',
   },
-  quotaBarLow:   { backgroundColor: '#FFF8DC', borderColor: '#D4AC0D' },
-  quotaBarEmpty: { backgroundColor: '#fdecea', borderColor: '#f5c6cb' },
-  quotaBarText:  { fontSize: 12, color: '#555', textAlign: 'center', fontWeight: '600' },
+  quotaBarLow:      { backgroundColor: '#FFF8DC', borderColor: '#D4AC0D' },
+  quotaBarEmpty:    { backgroundColor: '#fdecea', borderColor: '#f5c6cb' },
+  quotaBarLifetime: { backgroundColor: '#f3e8ff', borderColor: '#9B59B6' },
+  quotaBarText:     { fontSize: 12, color: '#555', textAlign: 'center', fontWeight: '600' },
 
   // ── Murottal button ──
   audioBtn: {

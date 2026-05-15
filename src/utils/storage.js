@@ -138,6 +138,7 @@ export const hasAccess = async () => {
 /** Deteksi plan dari prefix kode */
 const detectPlanFromCode = (code) => {
   const c = code.toUpperCase();
+  if (c.startsWith('HQL-')) return 'lifetime';
   if (c.startsWith('HQT-')) return 'tahunan';
   if (c.startsWith('HQB-')) return 'bulanan';
   return 'bulanan'; // default untuk kode lama HQ-
@@ -169,10 +170,11 @@ export const getPlan = async () => {
 export const getDailyLimit = async () => {
   const plan = await getPlan();
   switch (plan) {
-    case 'tahunan': return 420;
-    case 'bulanan': return 420;
-    case 'hafiz':   return 900;
-    default:        return 60;   // free
+    case 'lifetime': return Infinity; // tidak ada batas harian
+    case 'tahunan':  return 420;
+    case 'bulanan':  return 420;
+    case 'hafiz':    return 900;
+    default:         return 60;   // free
   }
 };
 
