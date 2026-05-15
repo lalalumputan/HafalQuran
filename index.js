@@ -62,6 +62,7 @@ const redisIncr = async (key) => {
 // Deteksi plan dari prefix kode
 const detectPlanFromCode = (code) => {
   const c = code.toUpperCase();
+  if (c.startsWith('HQL-')) return 'lifetime';
   if (c.startsWith('HQT-')) return 'tahunan';
   if (c.startsWith('HQB-')) return 'bulanan';
   return 'bulanan'; // default untuk kode lama HQ-
