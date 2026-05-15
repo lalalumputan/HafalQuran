@@ -378,8 +378,23 @@ export default function HafalScreen({ route }) {
         if (!granted) { Alert.alert('Izin Diperlukan', 'Aplikasi butuh izin mikrofon.'); return; }
         // setAudioModeAsync hanya relevan di native (iOS/Android)
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      } else {
+        // Web: minta izin mikrofon eksplisit via getUserMedia agar browser menampilkan dialog.
+        // Kalau sudah diblokir sebelumnya, langsung lempar error dengan pesan yang jelas.
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop()); // stop stream — hanya butuh izinnya
+        } catch (permErr) {
+          const isBlocked =
+            permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError';
+          setRecordError(
+            isBlocked
+              ? 'Mikrofon diblokir Chrome.\n\nCara unlock:\n1. Tap ikon 🔒 di address bar\n2. Pilih "Site settings"\n3. Mikrofon → Allow\n4. Refresh halaman, coba lagi.'
+              : 'Mikrofon tidak tersedia: ' + permErr.message
+          );
+          return;
+        }
       }
-      // Di web: browser meminta izin mikrofon secara otomatis saat getUserMedia dipanggil.
       // Deteksi mimeType yang didukung browser (webm/ogg/mp4) agar kompatibel di Android lama.
       const webMimeType = (() => {
         if (typeof MediaRecorder === 'undefined') return 'audio/webm';
