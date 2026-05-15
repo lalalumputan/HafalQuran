@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -17,11 +17,30 @@ export default function App() {
   const [route, setRoute]             = useState({ name: 'Profile', params: {} });
   const [history, setHistory]         = useState([]);
   const [homeKey, setHomeKey]         = useState(0);
+  const [installPrompt, setInstallPrompt] = useState(null); // PWA install prompt
 
   useEffect(() => {
     const t = setTimeout(() => setShowLanding(false), 2000);
     return () => clearTimeout(t);
   }, []);
+
+  // Tangkap event install PWA (Android Chrome)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstallPrompt(null);
+  };
 
   const navigate = (name, params = {}) => {
     setHistory(h => [...h, route]);
@@ -77,6 +96,11 @@ export default function App() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {titles[route.name]}
         </Text>
+        {installPrompt && (
+          <TouchableOpacity onPress={handleInstall} style={styles.installBtn}>
+            <Text style={styles.installBtnText}>⬇ Install</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Analytics />
@@ -114,6 +138,8 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 12, paddingBottom: 2 },
   backText: { color: '#D4AC0D', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
+  installBtn: { backgroundColor: '#D4AC0D', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  installBtnText: { color: '#1B4332', fontSize: 12, fontWeight: 'bold' },
   screen: { flex: 1 },
 
   // Landing splash

@@ -34,6 +34,7 @@ export default function HafalScreen({ route }) {
   const [singlePlayingIdx, setSinglePlayingIdx] = useState(-1); // ayat tunggal yg diputar
   const [remainingSecs, setRemainingSecs]       = useState(null); // null = belum di-load
   const [currentPlan, setCurrentPlan]           = useState('free');
+  const [recordError, setRecordError]           = useState('');
 
   const soundRef        = useRef(null);
   const recordingRef    = useRef(null);
@@ -371,14 +372,25 @@ export default function HafalScreen({ route }) {
       setRecordingUri(null);
       await stopRecording();
       await stopMurottal();
-      // Di web, browser otomatis minta izin saat getUserMedia dipanggil di dalam createAsync.
-      // requestPermissionsAsync() di web mengembalikan granted:false sebelum izin pernah diminta
-      // sehingga recording tidak pernah bisa dimulai. Skip check ini khusus web.
       if (Platform.OS !== 'web') {
+        // Native: minta izin mikrofon secara eksplisit
         const { granted } = await Audio.requestPermissionsAsync();
         if (!granted) { Alert.alert('Izin Diperlukan', 'Aplikasi butuh izin mikrofon.'); return; }
+        // setAudioModeAsync hanya relevan di native (iOS/Android)
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      // Di web: browser meminta izin mikrofon secara otomatis saat getUserMedia dipanggil.
+      // Deteksi mimeType yang didukung browser (webm/ogg/mp4) agar kompatibel di Android lama.
+      const webMimeType = (() => {
+        if (typeof MediaRecorder === 'undefined') return 'audio/webm';
+        const candidates = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+          'audio/mp4',
+        ];
+        return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
+      })();
       const { recording } = await Audio.Recording.createAsync({
         android: {
           extension: '.m4a', outputFormat: Audio.AndroidOutputFormat.MPEG_4,
@@ -390,7 +402,7 @@ export default function HafalScreen({ route }) {
           audioQuality: Audio.IOSAudioQuality.HIGH,
           sampleRate: 44100, numberOfChannels: 1, bitRate: 128000,
         },
-        web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+        web: { mimeType: webMimeType, bitsPerSecond: 128000 },
       });
       recordingRef.current = recording;
       recordStartRef.current = Date.now();
@@ -405,7 +417,8 @@ export default function HafalScreen({ route }) {
       }
 
     } catch (e) {
-      Alert.alert('Error', 'Tidak bisa memulai rekaman: ' + (e.message || ''));
+      const msg = e.message || 'Error tidak diketahui';
+      setRecordError('Mikrofon gagal: ' + msg);
     }
   };
 
@@ -662,10 +675,20 @@ export default function HafalScreen({ route }) {
         </View>
       )}
 
+      {/* ── Error rekam ── */}
+      {recordError ? (
+        <TouchableOpacity onPress={() => setRecordError('')}>
+          <View style={styles.recordErrorBox}>
+            <Text style={styles.recordErrorText}>⚠️ {recordError}</Text>
+            <Text style={styles.recordErrorHint}>Tap untuk tutup</Text>
+          </View>
+        </TouchableOpacity>
+      ) : null}
+
       {/* ── Rekam ── */}
       <TouchableOpacity
         style={[styles.recordBtn, isRecording && styles.recordingActive]}
-        onPress={isRecording ? stopAndEvaluate : startRecording}
+        onPress={() => { setRecordError(''); isRecording ? stopAndEvaluate() : startRecording(); }}
         disabled={isEvaluating}
         activeOpacity={0.85}
       >
@@ -989,6 +1012,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f9f4', borderRadius: 10, paddingHorizontal: 14,
     paddingVertical: 8, marginBottom: 8, borderWidth: 1, borderColor: '#c8e6c9',
   },
+  recordErrorBox:  { backgroundColor: '#fdecea', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#f5c6cb' },
+  recordErrorText: { fontSize: 13, color: '#c0392b', fontWeight: '600' },
+  recordErrorHint: { fontSize: 10, color: '#c0392b', marginTop: 4, opacity: 0.7 },
+
   quotaBarLow:      { backgroundColor: '#FFF8DC', borderColor: '#D4AC0D' },
   quotaBarEmpty:    { backgroundColor: '#fdecea', borderColor: '#f5c6cb' },
   quotaBarLifetime: { backgroundColor: '#f3e8ff', borderColor: '#9B59B6' },
