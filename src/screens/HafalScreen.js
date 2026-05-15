@@ -391,11 +391,13 @@ export default function HafalScreen({ route }) {
       recordStartRef.current = Date.now();
       setIsRecording(true);
 
-      // Auto-stop saat kuota habis (jaga agar recording tidak melebihi limit)
+      // Auto-stop saat kuota habis (skip jika lifetime / unlimited)
       clearTimeout(quotaTimerRef.current);
-      quotaTimerRef.current = setTimeout(() => {
-        if (recordingRef.current) stopAndEvaluate();
-      }, remaining * 1000);
+      if (isFinite(remaining)) {
+        quotaTimerRef.current = setTimeout(() => {
+          if (recordingRef.current) stopAndEvaluate();
+        }, remaining * 1000);
+      }
 
     } catch (e) {
       Alert.alert('Error', 'Tidak bisa memulai rekaman: ' + (e.message || ''));
