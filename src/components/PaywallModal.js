@@ -8,7 +8,7 @@ import { saveAccessCode, getDeviceId } from '../utils/storage';
 
 const ADMIN_WA   = '6287889477967';
 const BSI_NOREK  = '1102442028';
-const BSI_NAMA   = 'M Ruby Qimindra';
+const BSI_NAMA   = 'MARLA RUBY QUINTINE';
 
 const PLANS = [
   {
