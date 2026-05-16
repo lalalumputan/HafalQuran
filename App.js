@@ -17,20 +17,28 @@ export default function App() {
   const [route, setRoute]             = useState({ name: 'Profile', params: {} });
   const [history, setHistory]         = useState([]);
   const [homeKey, setHomeKey]         = useState(0);
-  const [installPrompt, setInstallPrompt] = useState(null); // PWA install prompt
+  const [installPrompt, setInstallPrompt]   = useState(null);  // Android Chrome
+  const [showIosHint, setShowIosHint]       = useState(false); // iOS Safari
+  const [isIos, setIsIos]                   = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setShowLanding(false), 2000);
     return () => clearTimeout(t);
   }, []);
 
-  // Tangkap event install PWA (Android Chrome)
+  // Deteksi iOS & tangkap event install PWA
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
+
+    // Deteksi iOS Safari (tidak support beforeinstallprompt)
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+
+    if (ios && !standalone) setIsIos(true); // tampilkan tombol "Cara Install" untuk iOS
+
+    // Android Chrome / Edge: tangkap beforeinstallprompt
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -96,14 +104,38 @@ export default function App() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {titles[route.name]}
         </Text>
+        {/* Android Chrome: tombol install otomatis */}
         {installPrompt && (
           <TouchableOpacity onPress={handleInstall} style={styles.installBtn}>
+            <Text style={styles.installBtnText}>⬇ Install</Text>
+          </TouchableOpacity>
+        )}
+        {/* iOS Safari: tombol cara install manual */}
+        {isIos && !installPrompt && (
+          <TouchableOpacity onPress={() => setShowIosHint(v => !v)} style={styles.installBtn}>
             <Text style={styles.installBtnText}>⬇ Install</Text>
           </TouchableOpacity>
         )}
       </View>
 
       <Analytics />
+
+      {/* Panel instruksi install iOS Safari */}
+      {showIosHint && (
+        <View style={styles.iosHintBox}>
+          <Text style={styles.iosHintText}>
+            📲  Tap ikon{' '}
+            <Text style={styles.iosHintBold}>Share (kotak ↑)</Text>
+            {' '}di bawah Safari →{' '}
+            <Text style={styles.iosHintBold}>"Add to Home Screen"</Text>
+            {' '}→ Tambahkan
+          </Text>
+          <TouchableOpacity onPress={() => setShowIosHint(false)}>
+            <Text style={styles.iosHintClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.screen}>
         {route.name === 'Profile' && (
           <ProfileScreen navigation={navigation} />
@@ -138,8 +170,15 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 12, paddingBottom: 2 },
   backText: { color: '#D4AC0D', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
-  installBtn: { backgroundColor: '#D4AC0D', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  installBtn:     { backgroundColor: '#D4AC0D', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   installBtnText: { color: '#1B4332', fontSize: 12, fontWeight: 'bold' },
+  iosHintBox: {
+    backgroundColor: '#1B4332', paddingHorizontal: 16, paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  iosHintText:  { color: '#fff', fontSize: 12, flex: 1, lineHeight: 18 },
+  iosHintBold:  { fontWeight: 'bold', color: '#D4AC0D' },
+  iosHintClose: { color: '#ffffff88', fontSize: 18, paddingLeft: 12 },
   screen: { flex: 1 },
 
   // Landing splash
